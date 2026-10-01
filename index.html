@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>JMP รายงานรายได้</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="app-title">
+      <h1>JMP รายงานรายได้</h1>
+      <span id="nav-file" class="file-chip hidden"></span>
+    </div>
+    <nav id="step-nav" class="step-nav" aria-label="ขั้นตอน">
+      <button type="button" class="step" id="nav-load" data-screen="load">
+        <span class="step-no">1</span> โหลดไฟล์
+      </button>
+      <button type="button" class="step" id="nav-mapping" data-screen="mapping" disabled>
+        <span class="step-no">2</span> จับคู่คอลัมน์
+        <span id="nav-mapping-badge" class="nav-badge hidden"></span>
+      </button>
+      <button type="button" class="step" id="nav-dashboard" data-screen="dashboard" disabled>
+        <span class="step-no">3</span> สรุปผล
+      </button>
+      <button type="button" class="step step-settings" id="nav-settings" data-screen="settings">ตั้งค่า</button>
+    </nav>
+  </header>
+
+  <main class="app-main">
+    <!-- Screen 1: load -->
+    <section id="screen-load" class="screen">
+      <div class="card">
+        <h2>เลือกไฟล์รายงานใบแจ้งหนี้ (.xlsx)</h2>
+        <p class="muted">ไฟล์จะถูกอ่านในเบราว์เซอร์นี้เท่านั้น ไม่มีการอัปโหลดไปที่ใด และต้องเลือกไฟล์ใหม่ทุกครั้งที่เปิดหน้า</p>
+        <div id="drop-zone" class="drop-zone" tabindex="0" role="button" aria-label="เลือกไฟล์รายงาน">
+          <p class="drop-text">ลากไฟล์มาวางที่นี่ หรือ <span class="link">คลิกเพื่อเลือกไฟล์</span></p>
+          <p class="muted small">รองรับไฟล์ส่งออกจากระบบใบแจ้งหนี้ (ชีต "รายงานใบแจ้งหนี้")</p>
+          <input type="file" id="file-input" accept=".xlsx,.xls,.xlsm" hidden>
+        </div>
+        <div id="load-status" class="status hidden"></div>
+      </div>
+      <div id="load-summary"></div>
+    </section>
+
+    <!-- Screen 2: column mapping -->
+    <section id="screen-mapping" class="screen hidden">
+      <div id="mapping-root"></div>
+    </section>
+
+    <!-- Screen 3: dashboard -->
+    <section id="screen-dashboard" class="screen hidden">
+      <div id="filter-bar" class="card filter-bar"></div>
+      <div id="dash-warning"></div>
+      <div id="metrics" class="metrics"></div>
+      <div class="tabs" id="tabs" role="tablist">
+        <button type="button" class="tab" data-tab="roomGroup" role="tab">ห้อง × กลุ่ม</button>
+        <button type="button" class="tab" data-tab="pivot" role="tab">Pivot รายเดือน</button>
+        <button type="button" class="tab" data-tab="trend" role="tab">แนวโน้ม</button>
+        <button type="button" class="tab" data-tab="invoices" role="tab">รายละเอียดบิล</button>
+      </div>
+      <div id="tab-body" class="card tab-body"></div>
+    </section>
+
+    <!-- Settings -->
+    <section id="screen-settings" class="screen hidden">
+      <div id="settings-root"></div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="js/settings.js"></script>
+  <script src="js/parser.js"></script>
+  <script src="js/aggregate.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

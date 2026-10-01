@@ -1,0 +1,8 @@
+# Invoice exports are private and must never be committed
+*.xlsx
+~$*
+
+node_modules/
+
+.DS_Store
+Thumbs.db

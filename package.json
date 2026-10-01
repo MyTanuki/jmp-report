@@ -1,0 +1,13 @@
+{
+  "name": "jmp-report",
+  "version": "1.0.0",
+  "private": true,
+  "description": "JMP revenue report - static browser app that groups invoice export columns and summarizes revenue per room",
+  "type": "module",
+  "scripts": {
+    "test": "node test/run.mjs"
+  },
+  "devDependencies": {
+    "xlsx": "^0.18.5"
+  }
+}
