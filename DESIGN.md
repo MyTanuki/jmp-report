@@ -162,6 +162,12 @@ Next file load: only columns without a confirmed mapping are surfaced first.
 - Export settings JSON (download `jmp-settings.json`), Import JSON (file picker, validate shape),
   Reset to defaults (confirm).
 - `localStorage` key: `jmp-report.settings.v1`.
+- Shipped defaults: `js/default-settings.js` sets `window.JMP_DEFAULT_SETTINGS` (same shape as
+  `Settings`, a plain script so it works from `file://`). `defaults()` returns it when valid, else
+  the built-in defaults; so it is what a browser with no saved settings starts with and what
+  "คืนค่าเริ่มต้น" restores. Saved `localStorage` settings always win over it. The button
+  "บันทึกเป็นค่าเริ่มต้น" downloads a new `default-settings.js` generated from the current settings
+  (the page cannot write to the repo); the owner replaces the file in `js/` and commits.
 
 ## Dashboard (screen 3)
 
@@ -214,6 +220,7 @@ Negative numbers shown in red. Thai month short names: ม.ค. ก.พ. มี.
 ```
 index.html
 css/style.css
+js/default-settings.js  shipped defaults (window.JMP_DEFAULT_SETTINGS), loaded before settings.js
 js/settings.js     defaults, normalizeHeader, load/save/import/export, rule engine (classify)
 js/parser.js       xlsx → Invoice[]  (+ column stats, sanity check)
 js/aggregate.js    pure functions: filter, group sums, room×group, pivot, monthly series

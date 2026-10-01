@@ -841,8 +841,14 @@ window.JMP = window.JMP || {};
       '<button type="button" id="btn-export-settings">ส่งออกการตั้งค่า (JSON)</button>' +
       '<button type="button" id="btn-import-settings">นำเข้าการตั้งค่า</button>' +
       '<input type="file" id="import-input" accept=".json,application/json" hidden>' +
+      '<button type="button" id="btn-save-default">บันทึกเป็นค่าเริ่มต้น</button>' +
       '<button type="button" class="btn-danger" id="btn-reset-settings">คืนค่าเริ่มต้น</button></div></div>' +
-      '<p class="muted">การตั้งค่าถูกเก็บในเบราว์เซอร์นี้ (localStorage) ส่งออกเป็นไฟล์ JSON เพื่อสำรองหรือย้ายไปเครื่องอื่น</p></div>';
+      '<p class="muted">การตั้งค่าถูกเก็บในเบราว์เซอร์นี้ (localStorage) ส่งออกเป็นไฟล์ JSON เพื่อสำรองหรือย้ายไปเครื่องอื่น</p>' +
+      '<p class="muted small">เบราว์เซอร์ที่ยังไม่เคยตั้งค่าจะเริ่มจากค่าเริ่มต้นในไฟล์ <code>js/default-settings.js</code> ' +
+      (S.shippedDefaults() ? ''
+        : global.JMP_DEFAULT_SETTINGS == null ? '(ไม่พบไฟล์นี้หรือโหลดไม่ได้ จึงใช้ค่าเริ่มต้นในตัว) '
+        : '(ไฟล์นี้มีข้อมูลไม่ถูกต้อง จึงใช้ค่าเริ่มต้นในตัว ดูรายละเอียดใน console) ') +
+      'กด "บันทึกเป็นค่าเริ่มต้น" เพื่อดาวน์โหลดไฟล์นี้จากการตั้งค่าปัจจุบัน แล้ววางทับในโฟลเดอร์ <code>js/</code> และ commit</p></div>';
 
     // Groups
     html += '<div class="card settings-section"><h3>กลุ่มรายได้</h3>' +
@@ -1012,8 +1018,13 @@ window.JMP = window.JMP || {};
       reader.readAsText(file);
       ev.target.value = '';
     });
+    $('#btn-save-default', root).addEventListener('click', function () {
+      var js = S.defaultSettingsJS(settings, new Date().toISOString());
+      downloadBlob(new Blob([js], { type: 'text/javascript' }), 'default-settings.js');
+      toast('ดาวน์โหลด default-settings.js แล้ว วางทับไฟล์ในโฟลเดอร์ js/ แล้ว commit เพื่อใช้เป็นค่าเริ่มต้น', 'ok');
+    });
     $('#btn-reset-settings', root).addEventListener('click', function () {
-      if (!global.confirm('คืนค่าเริ่มต้นทั้งหมด? กลุ่ม กฎ และการยืนยันคอลัมน์ที่แก้ไขไว้จะหายไป')) return;
+      if (!global.confirm('คืนค่าเริ่มต้นทั้งหมด? กลุ่ม กฎ และการยืนยันคอลัมน์ในเบราว์เซอร์นี้จะถูกแทนด้วยค่าเริ่มต้นของแอป (js/default-settings.js)')) return;
       actions.replaceSettings(S.reset());
       toast('คืนค่าเริ่มต้นแล้ว', 'ok');
     });

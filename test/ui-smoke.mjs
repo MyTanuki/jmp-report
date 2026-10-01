@@ -34,7 +34,7 @@ const scripts = [...html.matchAll(/<script src="([^"]+)"/g)].map((m) => m[1]);
 check('script order', JSON.stringify(scripts) === JSON.stringify([
   'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js',
-  'js/settings.js', 'js/parser.js', 'js/aggregate.js', 'js/ui.js', 'js/app.js',
+  'js/default-settings.js', 'js/settings.js', 'js/parser.js', 'js/aggregate.js', 'js/ui.js', 'js/app.js',
 ]), scripts.join(', '));
 check('no ES module scripts', !/type="module"/.test(html));
 check('stylesheet linked', /href="css\/style\.css"/.test(html));

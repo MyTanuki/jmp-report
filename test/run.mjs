@@ -176,6 +176,59 @@ section('settings: persistence + import/export');
   eq('moveGroup with tied orders: b before a', S.sortedGroups(tied).map((g) => g.id), ['b', 'a', 'c', 'other']);
 }
 
+section('settings: shipped defaults (js/default-settings.js)');
+{
+  sandbox.localStorage.clear();
+  eq('no shipped file → shippedDefaults() null', S.shippedDefaults(), null);
+
+  const shipped = S.importJSON(S.exportJSON(S.DEFAULT_SETTINGS));
+  shipped.columns = { 'ค่าเช่าห้อง 12 วัน (1-12 มิถุนายน 2566)': 'discount_days' };
+  shipped.statusInclude = ['ชำระเงินแล้ว'];
+  sandbox.JMP_DEFAULT_SETTINGS = shipped;
+  eq('defaults() returns the shipped settings', S.defaults(), shipped);
+  S.defaults().columns.x = 'room_rent';
+  eq('defaults() hands out a fresh copy each call', S.defaults().columns, shipped.columns);
+  eq('load() without storage entry → shipped defaults', S.load(), shipped);
+  const mine = S.defaults();
+  mine.columns = { 'ค่าน้ำ': 'water' };
+  S.save(mine);
+  eq('saved settings win over shipped defaults', S.load().columns, { 'ค่าน้ำ': 'water' });
+  eq('reset() → shipped defaults and persists', [S.reset(), S.load()], [shipped, shipped]);
+  eq('DEFAULT_SETTINGS (built-in) is untouched', [S.DEFAULT_SETTINGS.columns, S.DEFAULT_SETTINGS.statusInclude.length], [{}, 3]);
+
+  // defaultSettingsJS() output is a script that reproduces the settings exactly.
+  const js = S.defaultSettingsJS(mine, '2026-10-01T00:00:00.000Z */ x');
+  const probe = {}; probe.window = probe; vm.createContext(probe);
+  vm.runInContext(js, probe);
+  eq('defaultSettingsJS round-trips through a script', JSON.parse(JSON.stringify(probe.JMP_DEFAULT_SETTINGS)), mine);
+  check('defaultSettingsJS notes the save time', js.includes('Saved: 2026-10-01T00:00:00.000Z'));
+
+  // An invalid shipped file must not break the app.
+  const realWarn = console.warn;
+  let warned = 0;
+  console.warn = () => { warned++; };
+  sandbox.JMP_DEFAULT_SETTINGS = { groups: [{ id: 'a', kind: 'nope' }], rules: [] };
+  sandbox.localStorage.clear();
+  eq('invalid shipped file → built-in defaults', S.load(), S.DEFAULT_SETTINGS);
+  console.warn = realWarn;
+  check('invalid shipped file is reported on the console', warned > 0);
+
+  delete sandbox.JMP_DEFAULT_SETTINGS;
+  sandbox.localStorage.clear();
+  eq('shipped file removed → built-in defaults again', S.defaults(), S.DEFAULT_SETTINGS);
+
+  // The file actually committed in js/ must be valid.
+  const file = path.join(ROOT, 'js', 'default-settings.js');
+  if (fs.existsSync(file)) {
+    const box = { console }; box.window = box; box.globalThis = box; vm.createContext(box);
+    vm.runInContext(fs.readFileSync(file, 'utf8'), box, { filename: file });
+    const v = S.validate(JSON.parse(JSON.stringify(box.JMP_DEFAULT_SETTINGS)));
+    check('js/default-settings.js is valid settings', v.ok === true, (v.errors || []).join('; '));
+    check('js/default-settings.js keeps the "other" bucket and at least one rule',
+      v.ok && v.settings.groups.some((g) => g.id === S.UNASSIGNED_GROUP) && v.settings.rules.length > 0);
+  }
+}
+
 section('settings: group helpers');
 {
   const s = S.defaults();
