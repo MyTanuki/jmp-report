@@ -91,7 +91,11 @@ window.JMP = window.JMP || {};
   function exportAoa(aoa, sheetName, fileName) {
     var XLSX = global.XLSX;
     if (!XLSX) { toast('ไม่พบไลบรารี SheetJS จึงส่งออกไฟล์ไม่ได้', 'error'); return; }
-    var ws = XLSX.utils.aoa_to_sheet(aoa);
+    // Empty strings would become text cells; null leaves the cell truly blank.
+    var clean = aoa.map(function (row) {
+      return row.map(function (v) { return v === '' || v === undefined ? null : v; });
+    });
+    var ws = XLSX.utils.aoa_to_sheet(clean);
     var wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, (sheetName || 'Sheet1').slice(0, 31));
     XLSX.writeFile(wb, fileName);
@@ -675,7 +679,8 @@ window.JMP = window.JMP || {};
     // The selected group may have been deleted in settings since the last render.
     if (!valueOpts.some(function (o) { return o.key === pv.valueKey; })) pv.valueKey = A.VALUE_KEYS.REVENUE;
     var data = A.pivotMonthly(filtered, state.colMap, {
-      year: year, range: state.report.dateRange, valueKey: pv.valueKey, byCustomer: pv.byCustomer, groups: groups
+      year: year, range: state.report.dateRange, valueKey: pv.valueKey, byCustomer: pv.byCustomer, groups: groups,
+      allInvoices: state.report.invoices
     });
     var isCount = pv.valueKey === A.VALUE_KEYS.COUNT;
     var cell = function (v) { return isCount ? '<td class="num' + (v === 0 ? ' zero' : '') + '">' + fmtInt(v) + '</td>' : numTd(v); };
@@ -714,9 +719,10 @@ window.JMP = window.JMP || {};
       var aoa = [head];
       data.rows.forEach(function (r) {
         var lead = pv.byCustomer ? [r.level === 0 ? r.room : '', r.level === 0 ? '' : r.customer] : [r.room];
-        aoa.push(lead.concat(r.values).concat([r.total]));
+        // Months without any amount are exported as blank cells (like an Excel PivotTable).
+        aoa.push(lead.concat(r.values.map(function (v) { return v === 0 ? null : v; })).concat([r.total]));
       });
-      aoa.push(['Grand Total'].concat(pv.byCustomer ? [''] : []).concat(data.grandTotal.values).concat([data.grandTotal.total]));
+      aoa.push(['Grand Total'].concat(pv.byCustomer ? [''] : []).concat(data.grandTotal.values.map(function (v) { return v === 0 ? null : v; })).concat([data.grandTotal.total]));
       exportAoa(aoa, 'Pivot', 'jmp-pivot-' + (isCount ? 'count' : pv.valueKey.replace(/^__/, '')) + '-' + filterTag(state.filter) + '.xlsx');
     });
     bindTableClicks($('#pivot-table', body), actions, null);

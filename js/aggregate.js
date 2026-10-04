@@ -342,6 +342,9 @@ window.JMP = window.JMP || {};
    * }}
    * Room rows are level 0; when byCustomer, each room row is followed by its
    * customer rows (level 1) and the room row holds the room subtotal.
+   * Customer rows are ordered by the date of the customer's first invoice in that
+   * room (oldest tenant first), taken from opts.allInvoices when given (so the
+   * order does not change with filters) else from `invoices`; ties sort by name.
    */
   function pivotMonthly(invoices, colMap, opts) {
     opts = opts || {};
@@ -351,6 +354,12 @@ window.JMP = window.JMP || {};
     var colIdx = {};
     columns.forEach(function (c, i) { colIdx[c.key] = i; });
     var n = columns.length;
+
+    var firstDate = {};
+    (opts.allInvoices || invoices).forEach(function (inv) {
+      var k = inv.room + '\u0000' + inv.customer;
+      if (firstDate[k] === undefined || inv.date < firstDate[k]) firstDate[k] = inv.date;
+    });
 
     var rooms = {};
     var grand = new Array(n).fill(0);
@@ -377,7 +386,10 @@ window.JMP = window.JMP || {};
       var r = rooms[room];
       rows.push({ room: room, level: 0, values: roundAll(r.values), total: sum(r.values) });
       if (opts.byCustomer) {
-        Object.keys(r.customers).sort().forEach(function (cust) {
+        Object.keys(r.customers).sort(function (a, b) {
+          var da = firstDate[room + '\u0000' + a] || '', db = firstDate[room + '\u0000' + b] || '';
+          return da < db ? -1 : da > db ? 1 : (a < b ? -1 : a > b ? 1 : 0);
+        }).forEach(function (cust) {
           rows.push({ room: room, customer: cust, level: 1, values: roundAll(r.customers[cust]), total: sum(r.customers[cust]) });
         });
       }

@@ -522,6 +522,22 @@ if (!fs.existsSync(XLSX_FILE)) {
   const roomRow = pvc.rows.find((r) => r.level === 0);
   const custRows = pvc.rows.filter((r) => r.level === 1 && r.room === roomRow.room);
   near('room subtotal = sum of its customer rows', roomRow.total, custRows.reduce((s, r) => s + r.total, 0));
+  {
+    // Customers within a room are ordered by their first invoice date (oldest first), using all invoices.
+    const pvAllCust = A.pivotMonthly(all, colMap, { year: null, valueKey: A.VALUE_KEYS.COUNT, byCustomer: true, groups });
+    const first = {};
+    all.forEach((i) => { const k = i.room + '|' + i.customer; if (!(k in first) || i.date < first[k]) first[k] = i.date; });
+    let ordered = true;
+    const byRoom = {};
+    pvAllCust.rows.filter((r) => r.level === 1).forEach((r) => { (byRoom[r.room] = byRoom[r.room] || []).push(first[r.room + '|' + r.customer]); });
+    for (const dates of Object.values(byRoom)) for (let i = 1; i < dates.length; i++) if (dates[i] < dates[i - 1]) ordered = false;
+    check('pivot customers per room ordered by first invoice date', ordered && Object.values(byRoom).some((d) => d.length > 1));
+    // A filtered subset keeps the order that all invoices define.
+    const r103 = all.filter((i) => i.room === '103');
+    const sub = A.pivotMonthly(r103.filter((i) => i.year === 2026), colMap, { year: 2026, valueKey: A.VALUE_KEYS.COUNT, byCustomer: true, groups, allInvoices: all });
+    const subDates = sub.rows.filter((r) => r.level === 1).map((r) => first['103|' + r.customer]);
+    check('order uses allInvoices when filtered', subDates.every((d, i) => i === 0 || d >= subDates[i - 1]));
+  }
   const pvAll = A.pivotMonthly(all, colMap, { year: null, valueKey: A.VALUE_KEYS.INVOICE_NET, groups });
   check('year=all → first column is the first month', pvAll.columns.length > 12 && pvAll.columns[0].key === '2019-03' && /2019$/.test(pvAll.columns[0].label));
   eq('year=all → every calendar month from first to last (91 columns 2019-03..2026-09)', pvAll.columns.length, 91);
