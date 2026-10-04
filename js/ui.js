@@ -716,13 +716,15 @@ window.JMP = window.JMP || {};
     $('#pv-customer', body).addEventListener('change', function (ev) { pv.byCustomer = ev.target.checked; renderDashboardBody(state, actions); });
     $('#pv-export', body).addEventListener('click', function () {
       var head = ['ห้อง'].concat(pv.byCustomer ? ['ลูกค้า'] : []).concat(data.columns.map(function (c) { return c.label; })).concat(['Grand Total']);
+      // Raw data only: no room subtotal rows and no Grand Total row. With customers,
+      // every row carries its room so the sheet can be filtered or pivoted again.
       var aoa = [head];
       data.rows.forEach(function (r) {
-        var lead = pv.byCustomer ? [r.level === 0 ? r.room : '', r.level === 0 ? '' : r.customer] : [r.room];
+        if (pv.byCustomer && r.level === 0) return;
+        var lead = pv.byCustomer ? [r.room, r.customer] : [r.room];
         // Months without any amount are exported as blank cells (like an Excel PivotTable).
         aoa.push(lead.concat(r.values.map(function (v) { return v === 0 ? null : v; })).concat([r.total]));
       });
-      aoa.push(['Grand Total'].concat(pv.byCustomer ? [''] : []).concat(data.grandTotal.values.map(function (v) { return v === 0 ? null : v; })).concat([data.grandTotal.total]));
       exportAoa(aoa, 'Pivot', 'jmp-pivot-' + (isCount ? 'count' : pv.valueKey.replace(/^__/, '')) + '-' + filterTag(state.filter) + '.xlsx');
     });
     bindTableClicks($('#pivot-table', body), actions, null);
