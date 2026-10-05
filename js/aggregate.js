@@ -204,6 +204,60 @@ window.JMP = window.JMP || {};
     return a.groups[valueKey] || 0;
   }
 
+  /** Selector keys that cannot be added to other amounts (counts / the bill's own total). */
+  function isExclusiveKey(key) {
+    return key === VALUE_KEYS.COUNT || key === VALUE_KEYS.INVOICE_NET;
+  }
+
+  /**
+   * Leaf group ids a value key stands for. Parents expand to their children and
+   * the kind selectors (รายได้หลัก / รายได้สุทธิ / สาธารณูปโภค) to every leaf of
+   * those kinds, so overlapping selections (e.g. รายได้หลัก + ค่าเช่าห้อง) are
+   * counted once. Exclusive keys have no leaves.
+   */
+  function leafIds(key, groups) {
+    var gi = groupIndex(groups);
+    var leaves = gi.sorted.filter(function (g) { return !gi.isParent(g.id); });
+    function ofKinds(kinds) {
+      return leaves.filter(function (g) { return kinds.indexOf(g.kind) >= 0; }).map(function (g) { return g.id; });
+    }
+    if (key === VALUE_KEYS.REVENUE) return ofKinds(['revenue']);
+    if (key === VALUE_KEYS.NET) return ofKinds(['revenue', 'discount', 'other']);
+    if (key === VALUE_KEYS.UTILITY) return ofKinds(['utility']);
+    if (isExclusiveKey(key)) return [];
+    if (!gi.byId[key]) return [];
+    if (gi.isParent(key)) {
+      return leaves.filter(function (g) {
+        var p = gi.parentOf(g.id), guard = 0;
+        while (p && guard++ < 10) { if (p === key) return true; p = gi.parentOf(p); }
+        return false;
+      }).map(function (g) { return g.id; });
+    }
+    return [key];
+  }
+
+  /**
+   * Sum of several value keys for one invoice. Discounts are stored negative, so
+   * selecting รายได้หลัก + ส่วนลด yields revenue minus discounts. Each leaf group
+   * is counted once however many selected keys cover it. A selection containing an
+   * exclusive key (count / invoice net) uses only that key.
+   */
+  function valueOfMany(inv, colMap, groups, valueKeys) {
+    var keys = valueKeys && valueKeys.length ? valueKeys : [VALUE_KEYS.REVENUE];
+    var ex = keys.filter(isExclusiveKey)[0];
+    if (ex) return valueOf(inv, colMap, groups, ex);
+    var a = invoiceGroupAmounts(inv, colMap, groups);
+    var seen = {}, total = 0;
+    keys.forEach(function (k) {
+      leafIds(k, groups).forEach(function (id) {
+        if (seen[id]) return;
+        seen[id] = true;
+        total += a.groups[id] || 0;
+      });
+    });
+    return round2(total);
+  }
+
   /** Options for the pivot value selector: [{key,label,kind?}] */
   function valueOptions(groups) {
     var gi = groupIndex(groups);
@@ -221,6 +275,9 @@ window.JMP = window.JMP || {};
   }
 
   function valueLabel(valueKey, groups) {
+    if (Array.isArray(valueKey)) {
+      return valueKey.map(function (k) { return valueLabel(k, groups); }).join(' + ');
+    }
     if (VALUE_LABELS[valueKey]) return VALUE_LABELS[valueKey];
     var g = groupIndex(groups).byId[valueKey];
     return g ? g.label : String(valueKey);
@@ -349,7 +406,11 @@ window.JMP = window.JMP || {};
   function pivotMonthly(invoices, colMap, opts) {
     opts = opts || {};
     var groups = opts.groups || [];
-    var valueKey = opts.valueKey || VALUE_KEYS.REVENUE;
+    // opts.valueKeys (array, summed) wins over the single opts.valueKey.
+    var valueKeys = opts.valueKeys && opts.valueKeys.length ? opts.valueKeys : [opts.valueKey || VALUE_KEYS.REVENUE];
+    var exclusive = valueKeys.filter(isExclusiveKey)[0];
+    if (exclusive) valueKeys = [exclusive];
+    var valueKey = valueKeys[0];
     var columns = monthColumns(invoices, opts.year, opts.range);
     var colIdx = {};
     columns.forEach(function (c, i) { colIdx[c.key] = i; });
@@ -366,7 +427,7 @@ window.JMP = window.JMP || {};
     invoices.forEach(function (inv) {
       var ci = colIdx[inv.ym];
       if (ci === undefined) return;
-      var v = valueOf(inv, colMap, groups, valueKey);
+      var v = valueOfMany(inv, colMap, groups, valueKeys);
       var r = rooms[inv.room];
       if (!r) r = rooms[inv.room] = { values: new Array(n).fill(0), customers: {} };
       r.values[ci] += v;
@@ -400,7 +461,8 @@ window.JMP = window.JMP || {};
       rows: rows,
       grandTotal: { values: roundAll(grand), total: sum(grand) },
       valueKey: valueKey,
-      valueLabel: valueLabel(valueKey, groups)
+      valueKeys: valueKeys,
+      valueLabel: valueLabel(valueKeys, groups)
     };
   }
 
@@ -574,6 +636,9 @@ window.JMP = window.JMP || {};
     applyFilters: applyFilters,
     invoiceGroupAmounts: invoiceGroupAmounts,
     valueOf: valueOf,
+    valueOfMany: valueOfMany,
+    leafIds: leafIds,
+    isExclusiveKey: isExclusiveKey,
     valueOptions: valueOptions,
     valueLabel: valueLabel,
     roomByGroup: roomByGroup,

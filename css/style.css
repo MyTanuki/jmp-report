@@ -386,3 +386,9 @@ table.data td .raw { color: var(--text-muted); font-size: 11px; }
   .chart-wrap { height: 320px; }
   .rule-matches { columns: 1; }
 }
+
+/* Pivot value picker ------------------------------------------------------- */
+.pv-panel { min-width: 320px; max-width: 420px; }
+.pv-panel .list { display: flex; flex-direction: column; gap: 4px; }
+.pv-panel .list label { white-space: normal; }
+.pv-panel .list label.child { padding-left: 20px; }

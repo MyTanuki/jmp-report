@@ -30,7 +30,7 @@ window.JMP = window.JMP || {};
     mapping: { search: '', onlyOpen: false, sort: { key: 'state', dir: 1 } },
     settingsSort: { key: 'state', dir: 1 },
     roomGroup: { sort: { key: 'room', dir: 1 }, expandDiscount: false, showExclude: false },
-    pivot: { valueKey: A.VALUE_KEYS.REVENUE, byCustomer: false }
+    pivot: { valueKeys: [A.VALUE_KEYS.REVENUE], byCustomer: false }
   };
 
   function $(sel) { return document.querySelector(sel); }

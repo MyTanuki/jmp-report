@@ -676,24 +676,27 @@ window.JMP = window.JMP || {};
     var groups = state.settings.groups;
     var year = state.filter.year === 'all' ? null : state.filter.year;
     var valueOpts = A.valueOptions(groups);
-    // The selected group may have been deleted in settings since the last render.
-    if (!valueOpts.some(function (o) { return o.key === pv.valueKey; })) pv.valueKey = A.VALUE_KEYS.REVENUE;
+    // Selected groups may have been deleted in settings since the last render.
+    pv.valueKeys = (pv.valueKeys || []).filter(function (k) { return valueOpts.some(function (o) { return o.key === k; }); });
+    if (!pv.valueKeys.length) pv.valueKeys = [A.VALUE_KEYS.REVENUE];
     var data = A.pivotMonthly(filtered, state.colMap, {
-      year: year, range: state.report.dateRange, valueKey: pv.valueKey, byCustomer: pv.byCustomer, groups: groups,
+      year: year, range: state.report.dateRange, valueKeys: pv.valueKeys, byCustomer: pv.byCustomer, groups: groups,
       allInvoices: state.report.invoices
     });
-    var isCount = pv.valueKey === A.VALUE_KEYS.COUNT;
+    var isCount = data.valueKeys[0] === A.VALUE_KEYS.COUNT;
     var cell = function (v) { return isCount ? '<td class="num' + (v === 0 ? ' zero' : '') + '">' + fmtInt(v) + '</td>' : numTd(v); };
 
-    var opts = valueOpts.map(function (o) {
-      var label = o.label;
-      // Browsers collapse leading spaces in <option>, so indent children with a marker.
-      if (o.kind) label = (o.parent ? '   ↳ ' : '') + label + ' [' + KIND_LABELS[o.kind] + ']';
-      return { value: o.key, label: label };
-    });
-
     var html = '<div class="toolbar">';
-    html += '<label>ค่าที่แสดง <select id="pv-value">' + optionsHtml(opts, pv.valueKey) + '</select></label>';
+    var chosenLabel = data.valueKeys.length > 3 ? 'เลือก ' + data.valueKeys.length + ' รายการ' : data.valueLabel;
+    html += '<div class="field"><span>ค่าที่แสดง</span><details class="dropdown" id="pv-values"' + (pv.valuesOpen ? ' open' : '') + '><summary>' + esc(chosenLabel) + '</summary>' +
+      '<div class="dropdown-panel pv-panel"><p class="muted small">เลือกได้หลายรายการ ระบบนำมาบวกกัน ส่วนลดเป็นค่าติดลบ จึงเท่ากับหักส่วนลดออก ' +
+      'รายการที่ซ้อนกัน (เช่น รายได้หลัก กับ ค่าเช่าห้อง) นับครั้งเดียว</p><div class="list">';
+    valueOpts.forEach(function (o) {
+      var kindTxt = o.kind ? ' <span class="muted small">[' + KIND_LABELS[o.kind] + ']</span>' : '';
+      html += '<label class="' + (o.parent ? 'child' : '') + '"><input type="checkbox" data-key="' + esc(o.key) + '"' +
+        (pv.valueKeys.indexOf(o.key) >= 0 ? ' checked' : '') + '> ' + esc(o.label) + kindTxt + '</label>';
+    });
+    html += '</div></div></details></div>';
     html += '<label><input type="checkbox" id="pv-customer"' + (pv.byCustomer ? ' checked' : '') + '> แยกตามลูกค้า</label>';
     html += '<span class="spacer"></span><span class="muted small">' + (year ? 'ปี ' + year : 'ทุกปี (คอลัมน์ = ทุกเดือนในช่วงข้อมูลของไฟล์)') + ' · ' + esc(data.valueLabel) + '</span>';
     html += '<button type="button" id="pv-export">ส่งออก .xlsx</button></div>';
@@ -712,7 +715,19 @@ window.JMP = window.JMP || {};
     html += cell(data.grandTotal.total) + '</tr></tbody></table></div>';
     body.innerHTML = html;
 
-    $('#pv-value', body).addEventListener('change', function (ev) { pv.valueKey = ev.target.value; renderDashboardBody(state, actions); });
+    var valuesBox = $('#pv-values', body);
+    valuesBox.addEventListener('toggle', function () { pv.valuesOpen = valuesBox.open; });
+    valuesBox.addEventListener('change', function (ev) {
+      var key = ev.target.getAttribute('data-key');
+      if (key === null) return;
+      var keys = pv.valueKeys.filter(function (k) { return k !== key; });
+      if (ev.target.checked) {
+        // Counts and the bill's own total cannot be added to amounts: they stand alone.
+        keys = A.isExclusiveKey(key) ? [key] : keys.filter(function (k) { return !A.isExclusiveKey(k); }).concat([key]);
+      }
+      pv.valueKeys = keys.length ? keys : [A.VALUE_KEYS.REVENUE];
+      renderDashboardBody(state, actions); // stays open through pv.valuesOpen
+    });
     $('#pv-customer', body).addEventListener('change', function (ev) { pv.byCustomer = ev.target.checked; renderDashboardBody(state, actions); });
     $('#pv-export', body).addEventListener('click', function () {
       var head = ['ห้อง'].concat(pv.byCustomer ? ['ลูกค้า'] : []).concat(data.columns.map(function (c) { return c.label; })).concat(['Grand Total']);
@@ -725,7 +740,7 @@ window.JMP = window.JMP || {};
         // Months without any amount are exported as blank cells (like an Excel PivotTable).
         aoa.push(lead.concat(r.values.map(function (v) { return v === 0 ? null : v; })).concat([r.total]));
       });
-      exportAoa(aoa, 'Pivot', 'jmp-pivot-' + (isCount ? 'count' : pv.valueKey.replace(/^__/, '')) + '-' + filterTag(state.filter) + '.xlsx');
+      exportAoa(aoa, 'Pivot', 'jmp-pivot-' + (isCount ? 'count' : data.valueKeys.map(function (k) { return k.replace(/^__/, ''); }).join('+')) + '-' + filterTag(state.filter) + '.xlsx');
     });
     bindTableClicks($('#pivot-table', body), actions, null);
   }

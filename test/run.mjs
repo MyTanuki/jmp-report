@@ -506,6 +506,26 @@ if (!fs.existsSync(XLSX_FILE)) {
   near('metrics discount negative', Math.sign(m.discount), -1, 0);
 
   section('aggregate: pivotMonthly');
+  {
+    // Several value keys are summed per invoice (discounts are stored negative).
+    const V = A.VALUE_KEYS;
+    const sample = all.find((i) => { const a = A.invoiceGroupAmounts(i, colMap, groups); return a.revenue > 0 && a.discount < 0; });
+    const am = A.invoiceGroupAmounts(sample, colMap, groups);
+    near('revenue + discount = revenue minus discount amount', A.valueOfMany(sample, colMap, groups, [V.REVENUE, 'discount']), am.revenue + am.discount);
+    near('revenue + discount = NET when no other', A.valueOfMany(sample, colMap, groups, [V.REVENUE, 'discount']), am.revenue + am.discount);
+    near('overlap counted once: revenue + room_rent = revenue', A.valueOfMany(sample, colMap, groups, [V.REVENUE, 'room_rent']), am.revenue);
+    near('parent + child counted once', A.valueOfMany(sample, colMap, groups, ['discount', 'discount_special']), am.discount);
+    near('revenue + utility', A.valueOfMany(sample, colMap, groups, [V.REVENUE, V.UTILITY]), am.revenue + am.utility);
+    eq('exclusive key stands alone', A.valueOfMany(sample, colMap, groups, [V.REVENUE, V.COUNT]), 1);
+    near('single key = valueOf', A.valueOfMany(sample, colMap, groups, ['room_rent']), A.valueOf(sample, colMap, groups, 'room_rent'));
+    const multi = A.pivotMonthly(y2024, colMap, { year: 2024, valueKeys: [V.REVENUE, 'discount'], groups });
+    const net2024 = A.pivotMonthly(y2024, colMap, { year: 2024, valueKey: V.NET, groups });
+    const rev2024 = A.pivotMonthly(y2024, colMap, { year: 2024, valueKey: V.REVENUE, groups });
+    const disc2024 = A.pivotMonthly(y2024, colMap, { year: 2024, valueKey: 'discount', groups });
+    near('pivot revenue+discount grand total = revenue + discount', multi.grandTotal.total, rev2024.grandTotal.total + disc2024.grandTotal.total);
+    eq('pivot label joins the selection', multi.valueLabel, 'รายได้หลัก + ส่วนลด');
+    check('pivot valueKey alias still works', net2024.valueKeys.length === 1 && net2024.valueKey === V.NET);
+  }
   const pv = A.pivotMonthly(y2024, colMap, { year: 2024, valueKey: 'room_rent', groups });
   eq('12 month columns', pv.columns.map((c) => c.label), A.MONTHS_TH);
   eq('column keys', pv.columns[0].key, '2024-01');
